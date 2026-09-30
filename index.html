@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Poker Advisor</title>
+<style>
+:root{
+  --felt:#0f5132; --felt-dark:#0a3622; --felt-light:#177a4b;
+  --ink:#f4f1e6; --muted:#b7cbbd; --gold:#f2c14e; --gold-ink:#2b2000;
+  --card:#fffdf6; --black:#1d1d1f; --red:#c8102e; --joker:#7c3aed;
+  --panel:rgba(0,0,0,.24); --line:rgba(255,255,255,.14); --warn:#ffb4a8; --good:#9be7a8;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--felt-dark)}
+body{
+  margin:0;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",system-ui,sans-serif;
+  background:radial-gradient(130% 70% at 50% 0%,var(--felt-light) 0%,var(--felt) 45%,var(--felt-dark) 100%);
+  background-attachment:fixed;min-height:100vh;
+  padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 28px);
+  -webkit-user-select:none;user-select:none;
+}
+h1{font-size:21px;margin:0 0 2px;letter-spacing:.2px}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.gamebox{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.gamebox select{width:100%;background:rgba(255,255,255,.1);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 10px;font-size:17px;font-weight:700;-webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%;background-size:6px 6px;background-repeat:no-repeat}
+.gamebox option{color:#000}
+.payback{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;font-size:14px;min-height:34px}
+.payback b{font-size:17px}
+.payback .good{color:var(--good)}
+.payback .bad{color:var(--warn)}
+.small{border:0;border-radius:9px;padding:8px 12px;font-weight:700;font-size:14px;background:var(--gold);color:var(--gold-ink);white-space:nowrap;cursor:pointer}
+.hand{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:30px}
+.slot{position:relative}
+.badge{position:absolute;top:-21px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;letter-spacing:1.2px;color:var(--gold);opacity:0;transition:opacity .2s}
+.slot.hold .badge{opacity:1}
+.card{
+  background:var(--card);color:var(--black);border-radius:9px;aspect-ratio:5/7;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 3px 9px rgba(0,0,0,.38);touch-action:none;cursor:pointer;
+  transition:transform .12s ease,opacity .2s ease,box-shadow .2s ease;
+}
+.card.red{color:var(--red)}
+.card.joker{color:var(--joker)}
+.card .r{font-size:clamp(20px,7.2vw,32px);font-weight:750;line-height:1}
+.card .s{font-size:clamp(22px,8vw,36px);line-height:1.15}
+.card.joker .r{font-size:clamp(9px,2.7vw,12px);letter-spacing:1.2px;font-weight:800}
+.card.joker .s{font-size:clamp(26px,9vw,40px)}
+.card .wl{position:absolute;bottom:13px;left:0;right:0;text-align:center;font-size:8.5px;font-weight:800;letter-spacing:1px;color:#b8860b;display:none}
+.card.wild .wl{display:block}
+.card .arr{position:absolute;left:0;right:0;text-align:center;font-size:9px;color:#a3a3a3;line-height:1}
+.card .up{top:4px}.card .dn{bottom:4px}
+.card.bump{transform:scale(.93)}
+.slot.hold .card{box-shadow:0 0 0 3px var(--gold),0 3px 9px rgba(0,0,0,.38)}
+.slot.toss .card{opacity:.4;transform:translateY(7px)}
+.hint{color:var(--muted);font-size:12.5px;text-align:center;margin:12px 0 0}
+.row{display:flex;gap:10px;margin-top:16px}
+button,select,input{font:inherit}
+button{border:0;border-radius:12px;padding:14px 10px;font-weight:700;font-size:16px;cursor:pointer}
+button:active{transform:scale(.98)}
+.primary{flex:2;background:var(--gold);color:var(--gold-ink)}
+.ghost{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;margin-top:16px}
+.panel h2{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:700}
+.verdict{font-size:19px;font-weight:750;margin:0 0 3px}
+.cat{color:var(--gold);font-weight:650;margin:0 0 10px;font-size:15px}
+.why{margin:0 0 12px;line-height:1.45;font-size:15px}
+.ev{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+.ev b{font-size:22px}
+.muted{color:var(--muted);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:5px 0;border-bottom:1px solid var(--line)}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+.alt{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.alt:last-child{border-bottom:0}
+.alt .top{display:flex;justify-content:space-between;gap:8px}
+.alt .d{color:var(--warn);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rd{color:#ff6b6b}
+.jk{color:#c9b0ff;font-weight:700}
+.placeholder{color:var(--muted);font-size:14px;line-height:1.45;margin:0}
+details{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:0 14px}
+summary{padding:14px 0;font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:8px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"Edit ▾";color:var(--muted);font-weight:500;font-size:14px;white-space:nowrap}
+details[open] summary::after{content:"Done ▴"}
+#cmpBox summary::after{content:"Show ▾"}
+#cmpBox[open] summary::after{content:"Hide ▴"}
+.pay{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.pay label{font-size:15px}
+.pay input{width:92px;flex:none;text-align:right;background:rgba(255,255,255,.1);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:16px;-webkit-user-select:text;user-select:text}
+.presets{padding:4px 0 12px}
+.pay .rl{display:flex;flex-direction:column}
+.pay .mb{cursor:pointer;display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:var(--muted);font-weight:600}
+.sw{position:relative;width:44px;height:26px;flex:none;display:inline-block}
+.sw input{opacity:0;width:0;height:0;position:absolute}
+.sw i{position:absolute;inset:0;background:rgba(255,255,255,.22);border-radius:26px;transition:background .2s}
+.sw i::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw input:checked + i{background:var(--gold)}
+.sw input:checked + i::after{transform:translateX(18px)}
+.pay input:disabled{opacity:.55}
+.presets select{width:100%;background:rgba(255,255,255,.1);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 8px;font-size:15px}
+.presets option{color:#000}
+.note{color:var(--muted);font-size:12.5px;line-height:1.4;margin:10px 0 14px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.cmp td:first-child{padding-right:8px}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:15px}
+.seg{display:flex;flex:none;background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:10px;padding:2px}
+.seg button{padding:8px 14px;font-size:14px;background:transparent;color:var(--ink);border-radius:8px}
+.seg button.on{background:var(--gold);color:var(--gold-ink)}
+.card.moved{animation:mv 1.1s ease}
+@keyframes mv{0%,40%{box-shadow:0 0 0 4px #ff6b6b,0 3px 9px rgba(0,0,0,.38);transform:scale(1.06)}100%{box-shadow:0 3px 9px rgba(0,0,0,.38);transform:none}}
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a3622">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Poker Advisor">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+</head>
+<body>
+<h1>Poker Advisor</h1>
+<p class="sub">Best hold for every hand · works offline</p>
+
+<div class="gamebox">
+  <select id="game" aria-label="Game"></select>
+  <div class="payback" id="payback"></div>
+</div>
+
+<div class="hand" id="hand"></div>
+<p class="hint" id="hint"></p>
+
+<div class="row">
+  <button class="ghost" id="randomBtn">Random</button>
+  <button class="primary" id="enterBtn">Enter</button>
+</div>
+
+<div class="panel" id="result">
+  <p class="placeholder">Set up your five cards, then tap <b>Enter</b> to see which cards to hold and why.</p>
+</div>
+
+<details id="payBox">
+  <summary id="paySummary">Pay table</summary>
+  <p class="note" id="keyNote" style="margin:0 0 8px"></p>
+  <div class="presets"><select id="preset"></select></div>
+  <div id="payRows"></div>
+  <p class="note" id="mbNote" style="margin:8px 0 0"></p>
+  <p class="note">Enter what the machine pays for a 1-coin bet (on most machines, divide the 5-coin column by 5). The Royal Flush is usually 800 because it jumps to 4000 at max bet. Your pay tables are saved on this phone.</p>
+</details>
+
+<details id="cmpBox">
+  <summary>Compare games on this machine</summary>
+  <div id="cmp" style="padding-bottom:14px"></div>
+</details>
+
+<div class="panel" id="settings">
+  <h2>Settings</h2>
+  <div class="setrow">
+    <span>Swiping up makes the value go</span>
+    <div class="seg" id="swipeSeg"><button data-v="higher">Higher</button><button data-v="lower">Lower</button></div>
+  </div>
+</div>
+
+<script id="engine">
+/* ---------- Poker engine: exact expected values by full enumeration ---------- */
+var RANKS = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+var SUITS = ["♠","♥","♦","♣"]; /* spades hearts diamonds clubs */
+var JOKER = 52;
+
+var POP = new Uint8Array(16384);
+var STR = new Uint8Array(8192);   /* exact 5-rank straights */
+var WIN = new Uint8Array(8192);   /* ranks that fit inside some straight */
+var LOG = new Int8Array(8192);    /* index of a single bit */
+var HIGH = new Int8Array(8192);   /* index of highest bit */
+(function () {
+  var m, i;
+  for (m = 1; m < 16384; m++) POP[m] = POP[m >> 1] + (m & 1);
+  var wins = [0x100F];
+  for (i = 0; i <= 8; i++) { STR[0x1F << i] = 1; wins.push(0x1F << i); }
+  STR[0x100F] = 1;
+  for (m = 1; m < 8192; m++) {
+    if (POP[m] <= 5) for (var w = 0; w < wins.length; w++) if ((m & ~wins[w]) === 0) { WIN[m] = 1; break; }
+    for (i = 12; i >= 0; i--) if (m & (1 << i)) { HIGH[m] = i; break; }
+  }
+  for (i = 0; i < 13; i++) LOG[1 << i] = i;
+})();
+
+/* Natural hand code = kind*169 + a*13 + b
+   kinds: 0 royal, 1 SF, 2 quads (a=quad rank, b=kicker), 3 FH, 4 flush, 5 straight,
+          6 trips, 7 two pair, 8 pair (a=pair rank), 9 nothing */
+function natCode(a, b, c, d, e) {
+  var ra = a >> 2, rb = b >> 2, rc = c >> 2, rd = d >> 2, re = e >> 2;
+  var ma = 1 << ra, mb = 1 << rb, mc = 1 << rc, md = 1 << rd, me = 1 << re;
+  var mask = ma | mb | mc | md | me;
+  var n = POP[mask];
+  if (n === 5) {
+    var s = a & 3;
+    var fl = (b & 3) === s && (c & 3) === s && (d & 3) === s && (e & 3) === s;
+    if (fl) return STR[mask] ? (mask === 0x1F00 ? 0 : 169) : 676;
+    return STR[mask] ? 845 : 1521;
+  }
+  var x = ma ^ mb ^ mc ^ md ^ me;
+  if (n === 4) return 1352 + LOG[mask & ~x] * 13;
+  if (n === 3) return POP[x] === 1 ? 1183 : 1014;
+  var k = 1 + (ra === rb) + (ra === rc) + (ra === rd) + (ra === re);
+  if (k === 1 || k === 4) return 338 + LOG[mask & ~x] * 13 + LOG[x];
+  return 507;
+}
+
+/* Wild hand code = kind*13 + r
+   kinds: 0 natural royal, 1 four wilds, 2 wild royal, 3 five of a kind, 4 SF, 5 quads, 6 FH,
+          7 flush, 8 straight, 9 trips, 10 two pair, 11 pair (r = pair rank), 12 nothing */
+var NAT2W = [0, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+var NATW = new Int16Array(1690);
+(function () {
+  for (var code = 0; code < 1690; code++) {
+    var k = (code / 169) | 0, a = ((code / 13) | 0) % 13;
+    NATW[code] = NAT2W[k] * 13 + ((k === 2 || k === 8) ? a : 0);
+  }
+})();
+function wildCore(w, m1, m2, m3, m4, suited) {
+  if (w >= 4) return 13;
+  var top = m4 || m3 || m2 || m1;
+  var maxc = m4 ? 4 : m3 ? 3 : m2 ? 2 : 1;
+  var r = HIGH[top];
+  if (maxc + w >= 5) return 39 + r;
+  var distinct = m2 === 0;
+  if (distinct && suited) {
+    if ((m1 & ~0x1F00) === 0) return 26;
+    if (WIN[m1]) return 52;
+  }
+  if (maxc + w >= 4) return 65 + r;
+  if (w === 1 && POP[m2] === 2) return 78;
+  if (distinct && suited) return 91;
+  if (distinct && WIN[m1]) return 104;
+  if (maxc + w >= 3) return 117 + r;
+  return 143 + HIGH[m1];
+}
+var W5 = new Int32Array(5);
+function wildGeneric(a, b, c, d, e, deuces) {
+  W5[0] = a; W5[1] = b; W5[2] = c; W5[3] = d; W5[4] = e;
+  var w = 0, m1 = 0, m2 = 0, m3 = 0, m4 = 0, s = -1, suited = true;
+  for (var i = 0; i < 5; i++) {
+    var v = W5[i];
+    if (deuces ? (v >> 2) === 0 : v === 52) { w++; continue; }
+    var bit = 1 << (v >> 2);
+    if (m3 & bit) m4 |= bit; else if (m2 & bit) m3 |= bit; else if (m1 & bit) m2 |= bit; else m1 |= bit;
+    var su = v & 3;
+    if (s < 0) s = su; else if (su !== s) suited = false;
+  }
+  return wildCore(w, m1, m2, m3, m4, suited);
+}
+function jokerCode(a, b, c, d, e) {
+  if (a !== 52 && b !== 52 && c !== 52 && d !== 52 && e !== 52) return NATW[natCode(a, b, c, d, e)];
+  return wildGeneric(a, b, c, d, e, false);
+}
+function deucesCode(a, b, c, d, e) {
+  if ((a >> 2) && (b >> 2) && (c >> 2) && (d >> 2) && (e >> 2)) return NATW[natCode(a, b, c, d, e)];
+  return wildGeneric(a, b, c, d, e, true);
+}
+
+/* ---------- Games ---------- */
+var ROWS_JOB = ["Royal Flush","Straight Flush","Four of a Kind","Full House","Flush","Straight","Three of a Kind","Two Pair","Jacks or Better"];
+var ROWS_BONUS = ["Royal Flush","Straight Flush","Four Aces","Four 2s–4s","Four 5s–Kings","Full House","Flush","Straight","Three of a Kind","Two Pair","Jacks or Better"];
+var ROWS_DDB = ["Royal Flush","Straight Flush","Four Aces + 2–4 kicker","Four 2s–4s + A–4 kicker","Four Aces","Four 2s–4s","Four 5s–Kings","Full House","Flush","Straight","Three of a Kind","Two Pair","Jacks or Better"];
+var ROWS_AF = ["Royal Flush","Straight Flush","Four Aces","Four Jacks–Kings","Four 2s–10s","Full House","Flush","Straight","Three of a Kind","Two Pair","Jacks or Better"];
+var ROWS_DEUCES = ["Natural Royal Flush","Four Deuces","Wild Royal Flush","Five of a Kind","Straight Flush","Four of a Kind","Full House","Flush","Straight","Three of a Kind"];
+var ROWS_JOKER = ["Natural Royal Flush","Five of a Kind","Wild Royal Flush","Straight Flush","Four of a Kind","Full House","Flush","Straight","Three of a Kind","Two Pair","Kings or Better"];
+
+/* natural row functions: (kind, a, b) -> row or -1 */
+function rowJob(k, a) { return k === 8 ? (a >= 9 ? 8 : -1) : k === 9 ? -1 : k; }
+function rowBonus(k, a) {
+  if (k <= 1) return k;
+  if (k === 2) return a === 12 ? 2 : a <= 2 ? 3 : 4;
+  if (k === 8) return a >= 9 ? 10 : -1;
+  if (k === 9) return -1;
+  return k + 2;
+}
+function rowDDB(k, a, b) {
+  if (k <= 1) return k;
+  if (k === 2) {
+    if (a === 12) return b <= 2 ? 2 : 4;
+    if (a <= 2) return (b <= 2 || b === 12) ? 3 : 5;
+    return 6;
+  }
+  if (k === 8) return a >= 9 ? 12 : -1;
+  if (k === 9) return -1;
+  return k + 4;
+}
+function rowAF(k, a) {
+  if (k <= 1) return k;
+  if (k === 2) return a === 12 ? 2 : a >= 9 ? 3 : 4;
+  if (k === 8) return a >= 9 ? 10 : -1;
+  if (k === 9) return -1;
+  return k + 2;
+}
+/* wild row functions: (kind, r) -> row or -1 */
+function rowDeuces(k) { return k <= 9 ? k : -1; }
+var JK_MAP = [0, -1, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, -1];
+function rowJoker(k, r) { if (k === 11) return r >= 11 ? 10 : -1; return JK_MAP[k]; }
+
+function P5(fh, fl, st, tk, tp, jb) { return [fh, fl, st, tk, tp, jb]; }
+function makeGame(o) {
+  var wild = o.wild || null;
+  var size = wild ? 169 : 1690;
+  var rowOf = new Int8Array(size);
+  for (var code = 0; code < size; code++) {
+    if (wild) rowOf[code] = o.rowFn((code / 13) | 0, code % 13);
+    else rowOf[code] = o.rowFn((code / 169) | 0, ((code / 13) | 0) % 13, code % 13);
+  }
+  o.rowOf = rowOf;
+  o.codeSize = size;
+  o.deck = wild === "joker" ? 53 : 52;
+  o.ev = wild === "joker" ? jokerCode : wild === "deuces" ? deucesCode : natCode;
+  o.kindOf = function (code) { return wild ? (code / 13) | 0 : (code / 169) | 0; };
+  o.isWild = wild === "joker" ? function (c) { return c === JOKER; }
+           : wild === "deuces" ? function (c) { return (c >> 2) === 0; }
+           : function () { return false; };
+  return o;
+}
+
+var GAMES = [
+  makeGame({id: "job", title: "Jacks or Better", rows: ROWS_JOB, rowFn: rowJob,
+    pairMin: 9, pairName: "Jacks or Better", highList: "J, Q, K, A",
+    presets: [
+      {name: "9/6", p: [800,50,25,9,6,4,3,2,1], r: 99.54, rs: 98.37},
+      {name: "9/5", p: [800,50,25,9,5,4,3,2,1], r: 98.45, rs: 97.22},
+      {name: "8/6", p: [800,50,25,8,6,4,3,2,1], r: 98.39, rs: 97.22},
+      {name: "8/5", p: [800,50,25,8,5,4,3,2,1], r: 97.30, rs: 96.06},
+      {name: "7/5", p: [800,50,25,7,5,4,3,2,1], r: 96.15, rs: 94.91},
+      {name: "6/5", p: [800,50,25,6,5,4,3,2,1], r: 95.00, rs: 93.76}
+    ]}),
+  makeGame({id: "bonus", title: "Bonus Poker", rows: ROWS_BONUS, rowFn: rowBonus,
+    pairMin: 9, pairName: "Jacks or Better", highList: "J, Q, K, A",
+    presets: [
+      {name: "8/5", p: [800,50,80,40,25,8,5,4,3,2,1], r: 99.17, rs: 97.93},
+      {name: "7/5", p: [800,50,80,40,25,7,5,4,3,2,1], r: 98.01, rs: 96.78},
+      {name: "6/5", p: [800,50,80,40,25,6,5,4,3,2,1], r: 96.87, rs: 95.63}
+    ]}),
+  makeGame({id: "bpd", title: "Bonus Poker Deluxe", rows: ROWS_JOB, rowFn: rowJob,
+    pairMin: 9, pairName: "Jacks or Better", highList: "J, Q, K, A",
+    defs: [800,50,80,9,6,4,3,1,1],
+    presets: [
+      {name: "9/6", p: [800,50,80,9,6,4,3,1,1], r: 99.64, rs: 98.52},
+      {name: "9/5", p: [800,50,80,9,5,4,3,1,1], r: 98.55, rs: 97.34},
+      {name: "8/6", p: [800,50,80,8,6,4,3,1,1], r: 98.49, rs: 97.37},
+      {name: "8/5", p: [800,50,80,8,5,4,3,1,1], r: 97.40, rs: 96.19},
+      {name: "7/5", p: [800,50,80,7,5,4,3,1,1], r: 96.25, rs: 95.04},
+      {name: "6/5", p: [800,50,80,6,5,4,3,1,1], r: 95.36, rs: 94.15}
+    ]}),
+  makeGame({id: "db", title: "Double Bonus", rows: ROWS_BONUS, rowFn: rowBonus,
+    pairMin: 9, pairName: "Jacks or Better", highList: "J, Q, K, A",
+    presets: [
+      {name: "10/7", p: [800,50,160,80,50,10,7,5,3,1,1], r: 100.17, rs: 99.11},
+      {name: "9/7", p: [800,50,160,80,50,9,7,5,3,1,1], r: 99.11, rs: 98.04},
+      {name: "9/6", p: [800,50,160,80,50,9,6,5,3,1,1], r: 97.81, rs: 96.66},
+      {name: "9/6/4", p: [800,50,160,80,50,9,6,4,3,1,1], r: 96.38, rs: 95.24},
+      {name: "8/5/4", p: [800,50,160,80,50,8,5,4,3,1,1], r: 94.19, rs: 92.97},
+      {name: "7/5/4", p: [800,50,160,80,50,7,5,4,3,1,1], r: 93.11, rs: 91.89}
+    ]}),
+  makeGame({id: "ddb", title: "Double Double Bonus", rows: ROWS_DDB, rowFn: rowDDB, kicker: true,
+    pairMin: 9, pairName: "Jacks or Better", highList: "J, Q, K, A",
+    presets: [
+      {name: "10/6", p: [800,50,400,160,160,80,50,10,6,4,3,1,1], r: 100.07, rs: 98.92},
+      {name: "9/6", p: [800,50,400,160,160,80,50,9,6,4,3,1,1], r: 98.98, rs: 97.83},
+      {name: "9/5", p: [800,50,400,160,160,80,50,9,5,4,3,1,1], r: 97.87, rs: 96.64},
+      {name: "8/5", p: [800,50,400,160,160,80,50,8,5,4,3,1,1], r: 96.79, rs: 95.55},
+      {name: "7/5", p: [800,50,400,160,160,80,50,7,5,4,3,1,1], r: 95.71, rs: 94.48},
+      {name: "6/5", p: [800,50,400,160,160,80,50,6,5,4,3,1,1], r: 94.66, rs: 93.42}
+    ]}),
+  makeGame({id: "tdb", title: "Triple Double Bonus", rows: ROWS_DDB, rowFn: rowDDB, kicker: true,
+    pairMin: 9, pairName: "Jacks or Better", highList: "J, Q, K, A",
+    presets: [
+      {name: "9/7", p: [800,50,800,400,160,80,50,9,7,4,2,1,1], r: 99.58, rs: 98.48},
+      {name: "9/6", p: [800,50,800,400,160,80,50,9,6,4,2,1,1], r: 98.15, rs: 97.03},
+      {name: "8/5", p: [800,50,800,400,160,80,50,8,5,4,2,1,1], r: 95.97, rs: 94.73},
+      {name: "7/5", p: [800,50,800,400,160,80,50,7,5,4,2,1,1], r: 94.92, rs: 93.68},
+      {name: "6/5", p: [800,50,800,400,160,80,50,6,5,4,2,1,1], r: 93.87, rs: 92.63}
+    ]}),
+  makeGame({id: "af", title: "Aces & Faces", rows: ROWS_AF, rowFn: rowAF,
+    pairMin: 9, pairName: "Jacks or Better", highList: "J, Q, K, A",
+    presets: [
+      {name: "8/5", p: [800,50,80,40,25,8,5,4,3,2,1], r: 99.26, rs: 98.02},
+      {name: "7/5", p: [800,50,80,40,25,7,5,4,3,2,1], r: 98.10, rs: 96.87},
+      {name: "6/5", p: [800,50,80,40,25,6,5,4,3,2,1], r: 96.96, rs: 95.72}
+    ]}),
+  makeGame({id: "deuces", title: "Deuces Wild", wild: "deuces", rows: ROWS_DEUCES, rowFn: rowDeuces,
+    pairMin: 99, pairName: "Three of a Kind", highList: "",
+    presets: [
+      {name: "Full pay 25/15/9/5", p: [800,200,25,15,9,5,3,2,2,1], r: 100.76, rs: 99.57},
+      {name: "Not So Ugly Ducks 25/16/10/4/4", p: [800,200,25,16,10,4,4,3,2,1], r: 99.73, rs: 98.50},
+      {name: "Illinois 25/15/9/4/4", p: [800,200,25,15,9,4,4,3,2,1], r: 98.91, rs: 97.69},
+      {name: "20/15/9/4/4", p: [800,200,20,15,9,4,4,3,2,1], r: 97.97, rs: 96.77},
+      {name: "20/10/8/4/3/2/2", p: [800,200,20,10,8,4,3,2,2,1], r: 91.42, rs: 90.23}
+    ]}),
+  makeGame({id: "joker", title: "Joker Poker", wild: "joker", rows: ROWS_JOKER, rowFn: rowJoker,
+    pairMin: 11, pairName: "Kings or Better", highList: "K, A",
+    presets: [
+      {name: "20/7/5", p: [800,200,100,50,20,7,5,3,2,1,1], r: 100.65, rs: 99.52},
+      {name: "17/7/5", p: [800,200,100,50,17,7,5,3,2,1,1], r: 98.09, rs: 96.94}
+    ]})
+];
+var GAME_BY_ID = {};
+GAMES.forEach(function (g) { GAME_BY_ID[g.id] = g; if (!g.defs) g.defs = g.presets[0].p.slice(); });
+
+/* What the numbers in a pay table name stand for, e.g. 9/6 = Full House 9, Flush 6 */
+var NAME_KEYS = {
+  db: ["Full House", "Flush", "Straight"],
+  deuces: ["Wild Royal", "5 of a Kind", "Straight Flush", "4 of a Kind", "Full House", "Flush", "Straight"],
+  joker: ["4 of a Kind", "Full House", "Flush"]
+};
+GAMES.forEach(function (g) { g.nameKey = NAME_KEYS[g.id] || ["Full House", "Flush"]; });
+function explainName(g, name) {
+  var m = String(name).match(/\d+(\/\d+)+/);
+  if (!m) return "";
+  return m[0].split("/").map(function (n, i) { return (g.nameKey[i] || "?") + " " + n; }).join(", ");
+}
+
+/* ---------- Single-hand analysis ---------- */
+function countHold(held, rem, counts, ev) {
+  var n = rem.length, k = 5 - held.length, a, b, c, d, e;
+  var h0 = held[0], h1 = held[1], h2 = held[2], h3 = held[3], h4 = held[4];
+  if (k === 0) { counts[ev(h0, h1, h2, h3, h4)]++; return; }
+  if (k === 1) { for (a = 0; a < n; a++) counts[ev(h0, h1, h2, h3, rem[a])]++; return; }
+  if (k === 2) {
+    for (a = 0; a < n; a++) for (b = a + 1; b < n; b++)
+      counts[ev(h0, h1, h2, rem[a], rem[b])]++;
+    return;
+  }
+  if (k === 3) {
+    for (a = 0; a < n; a++) for (b = a + 1; b < n; b++) for (c = b + 1; c < n; c++)
+      counts[ev(h0, h1, rem[a], rem[b], rem[c])]++;
+    return;
+  }
+  if (k === 4) {
+    for (a = 0; a < n; a++) for (b = a + 1; b < n; b++) for (c = b + 1; c < n; c++)
+      for (d = c + 1; d < n; d++)
+        counts[ev(h0, rem[a], rem[b], rem[c], rem[d])]++;
+    return;
+  }
+  for (a = 0; a < n; a++) for (b = a + 1; b < n; b++) for (c = b + 1; c < n; c++)
+    for (d = c + 1; d < n; d++) for (e = d + 1; e < n; e++)
+      counts[ev(rem[a], rem[b], rem[c], rem[d], rem[e])]++;
+}
+
+function analyze(hand, pays, g) {
+  var inHand = {}, rem = [], i;
+  var nr = g.rows.length;
+  for (i = 0; i < 5; i++) inHand[hand[i]] = 1;
+  for (i = 0; i < g.deck; i++) if (!inHand[i]) rem.push(i);
+  var results = [];
+  var raw = new Int32Array(g.codeSize);
+  for (var mask = 0; mask < 32; mask++) {
+    var held = [];
+    for (i = 0; i < 5; i++) if (mask & (1 << i)) held.push(hand[i]);
+    raw.fill(0);
+    countHold(held, rem, raw, g.ev);
+    var counts = new Float64Array(nr + 1), total = 0, win = 0;
+    for (i = 0; i < g.codeSize; i++) {
+      if (!raw[i]) continue;
+      var row = g.rowOf[i];
+      counts[row < 0 ? nr : row] += raw[i];
+      total += raw[i];
+    }
+    for (i = 0; i < nr; i++) win += counts[i] * pays[i];
+    results.push({mask: mask, held: held, counts: counts, total: total, ev: win / total});
+  }
+  results.sort(function (p, q) {
+    if (Math.abs(q.ev - p.ev) > 1e-9) return q.ev - p.ev;
+    return q.held.length - p.held.length;
+  });
+  return results;
+}
+
+/* ---------- Whole-machine payback with perfect play ----------
+   For every subset S of up to 4 cards, sum the payouts of all 5-card hands containing S.
+   The value of holding S from a dealt hand H is then an inclusion-exclusion over the
+   discarded cards. Dealt hands are grouped by suit pattern so each pattern is solved once. */
+function machineReturn(g, pays) {
+  var N = g.deck, i, j;
+  var BIN = [];
+  for (i = 0; i <= N; i++) {
+    BIN.push(new Float64Array(6));
+    for (j = 0; j <= 5; j++) BIN[i][j] = j === 0 ? 1 : i === 0 ? 0 : BIN[i - 1][j - 1] * i / j;
+  }
+  var B1 = new Int32Array(N + 1), B2 = new Int32Array(N + 1), B3 = new Int32Array(N + 1), B4 = new Int32Array(N + 1);
+  for (i = 0; i <= N; i++) { B1[i] = BIN[i][1]; B2[i] = BIN[i][2]; B3[i] = BIN[i][3]; B4[i] = BIN[i][4]; }
+  var payCode = new Float64Array(g.codeSize);
+  for (i = 0; i < g.codeSize; i++) payCode[i] = g.rowOf[i] >= 0 ? pays[g.rowOf[i]] : 0;
+  var S4 = new Float64Array(BIN[N][4]), S3 = new Float64Array(BIN[N][3]),
+      S2 = new Float64Array(BIN[N][2]), S1 = new Float64Array(N), S0 = 0;
+  var ev = g.ev, a, b, c, d, e;
+
+  for (a = 0; a < N; a++) for (b = a + 1; b < N; b++) for (c = b + 1; c < N; c++) for (d = c + 1; d < N; d++) {
+    var abcd = B1[a] + B2[b] + B3[c] + B4[d];
+    var abc = B1[a] + B2[b] + B3[c], abd = B1[a] + B2[b] + B3[d], acd = B1[a] + B2[c] + B3[d], bcd = B1[b] + B2[c] + B3[d];
+    for (e = d + 1; e < N; e++) {
+      var p = payCode[ev(a, b, c, d, e)];
+      if (p === 0) continue;
+      S4[abcd] += p;
+      S4[abc + B4[e]] += p;
+      S4[abd + B4[e]] += p;
+      S4[acd + B4[e]] += p;
+      S4[bcd + B4[e]] += p;
+    }
+  }
+  for (a = 0; a < N; a++) for (b = a + 1; b < N; b++) for (c = b + 1; c < N; c++) for (d = c + 1; d < N; d++) {
+    var v4 = S4[B1[a] + B2[b] + B3[c] + B4[d]];
+    if (v4 === 0) continue;
+    S3[B1[a] + B2[b] + B3[c]] += v4; S3[B1[a] + B2[b] + B3[d]] += v4;
+    S3[B1[a] + B2[c] + B3[d]] += v4; S3[B1[b] + B2[c] + B3[d]] += v4;
+  }
+  for (i = 0; i < S3.length; i++) S3[i] /= 2;
+  for (a = 0; a < N; a++) for (b = a + 1; b < N; b++) for (c = b + 1; c < N; c++) {
+    var v3 = S3[B1[a] + B2[b] + B3[c]];
+    S2[B1[a] + B2[b]] += v3; S2[B1[a] + B2[c]] += v3; S2[B1[b] + B2[c]] += v3;
+  }
+  for (i = 0; i < S2.length; i++) S2[i] /= 3;
+  for (a = 0; a < N; a++) for (b = a + 1; b < N; b++) { var v2 = S2[B1[a] + B2[b]]; S1[a] += v2; S1[b] += v2; }
+  for (i = 0; i < N; i++) { S1[i] /= 4; S0 += S1[i]; }
+  S0 /= 5;
+
+  var DEN = new Float64Array(6);
+  for (i = 0; i <= 5; i++) DEN[i] = BIN[N - 5][5 - i];
+  var H = new Int32Array(5), V = new Float64Array(32);
+  var SUBPOS = [], SUBSIZE = new Int32Array(32);
+  for (var m = 0; m < 32; m++) {
+    var pos = [];
+    for (i = 0; i < 5; i++) if (m & (1 << i)) pos.push(i);
+    SUBPOS.push(pos); SUBSIZE[m] = pos.length;
+  }
+  function best() {
+    for (var m = 0; m < 31; m++) {
+      var ps = SUBPOS[m], k = ps.length;
+      if (k === 0) V[m] = S0;
+      else if (k === 1) V[m] = S1[H[ps[0]]];
+      else if (k === 2) V[m] = S2[B1[H[ps[0]]] + B2[H[ps[1]]]];
+      else if (k === 3) V[m] = S3[B1[H[ps[0]]] + B2[H[ps[1]]] + B3[H[ps[2]]]];
+      else V[m] = S4[B1[H[ps[0]]] + B2[H[ps[1]]] + B3[H[ps[2]]] + B4[H[ps[3]]]];
+    }
+    V[31] = payCode[ev(H[0], H[1], H[2], H[3], H[4])];
+    var top = 0;
+    for (var s = 0; s < 32; s++) {
+      var D = ~s & 31, sum = 0, t = D;
+      while (true) {
+        sum += (POP[t] & 1) ? -V[s | t] : V[s | t];
+        if (t === 0) break;
+        t = (t - 1) & D;
+      }
+      var val = sum / DEN[SUBSIZE[s]];
+      if (val > top) top = val;
+    }
+    return top;
+  }
+
+  var cache = new Map(), total = 0, sm = new Int32Array(4);
+  for (a = 0; a < N; a++) for (b = a + 1; b < N; b++) for (c = b + 1; c < N; c++) for (d = c + 1; d < N; d++) for (e = d + 1; e < N; e++) {
+    sm[0] = sm[1] = sm[2] = sm[3] = 0;
+    var jk = 0;
+    if (a === 52) jk = 1; else sm[a & 3] |= 1 << (a >> 2);
+    if (b === 52) jk = 1; else sm[b & 3] |= 1 << (b >> 2);
+    if (c === 52) jk = 1; else sm[c & 3] |= 1 << (c >> 2);
+    if (d === 52) jk = 1; else sm[d & 3] |= 1 << (d >> 2);
+    if (e === 52) jk = 1; else sm[e & 3] |= 1 << (e >> 2);
+    var x0 = sm[0], x1 = sm[1], x2 = sm[2], x3 = sm[3], tmp;
+    if (x0 < x1) { tmp = x0; x0 = x1; x1 = tmp; }
+    if (x2 < x3) { tmp = x2; x2 = x3; x3 = tmp; }
+    if (x0 < x2) { tmp = x0; x0 = x2; x2 = tmp; }
+    if (x1 < x3) { tmp = x1; x1 = x3; x3 = tmp; }
+    if (x1 < x2) { tmp = x1; x1 = x2; x2 = tmp; }
+    var key = (((x0 * 8192 + x1) * 8192 + x2) * 8192 + x3) * 2 + jk;
+    var v = cache.get(key);
+    if (v === undefined) {
+      H[0] = a; H[1] = b; H[2] = c; H[3] = d; H[4] = e;
+      v = best();
+      cache.set(key, v);
+    }
+    total += v;
+  }
+  return total / BIN[N][5];
+}
+
+/* ---------- Naming holds the way a strategy card would ---------- */
+var NAT_KEYS = ["royal","sflush","quads","full","flush","straight","trips","twopair","highpair","none"];
+var WILD_KEYS = ["royal","fourwild","wroyal","five","sflush","quads","full","flush","straight","trips","twopair","highpair","none"];
+
+function describeHold(cards, g) {
+  var n = cards.length;
+  if (n === 0) return {key: "none", name: "Draw five new cards"};
+  if (n === 5) {
+    var code = g.ev(cards[0], cards[1], cards[2], cards[3], cards[4]);
+    var row = g.rowOf[code];
+    if (row >= 0) return {key: (g.wild ? WILD_KEYS : NAT_KEYS)[g.kindOf(code)], name: "Made " + g.rows[row]};
+  }
+  var wilds = cards.filter(g.isWild), w = wilds.length;
+  var others = cards.filter(function (c) { return !g.isWild(c); });
+  var m = others.length, i;
+  var ranks = others.map(function (c) { return c >> 2; });
+  var suits = others.map(function (c) { return c & 3; });
+  var cnt = {};
+  for (i = 0; i < m; i++) cnt[ranks[i]] = (cnt[ranks[i]] || 0) + 1;
+  var groups = Object.keys(cnt).map(function (r) { return {r: +r, c: cnt[r]}; })
+    .sort(function (p, q) { return q.c - p.c || q.r - p.r; });
+  var suited = suits.every(function (s) { return s === suits[0]; });
+  var mask = 0;
+  for (i = 0; i < m; i++) mask |= 1 << ranks[i];
+  var distinct = groups.length === m;
+  var canStraight = distinct && WIN[mask] === 1;
+  var allRoyal = ranks.every(function (r) { return r >= 8; });
+  var extra = function (used) { return m > used ? " + kicker" + (m - used > 1 ? "s" : "") : ""; };
+  var pn = function (r) { return RANKS[r] + "s"; };
+
+  if (w > 0) {
+    var joker = g.wild === "joker";
+    var wn = joker ? "Joker" : ["", "One deuce", "Two deuces", "Three deuces", "Four deuces"][w];
+    var withW = joker ? "with the Joker" : "with " + (w === 1 ? "1 deuce" : w + " deuces");
+    var total = m + w;
+    if (m === 0) return {key: "walone", name: joker ? "Joker alone" : wn + " only"};
+    if (groups[0].c + w >= 5) return {key: "five", name: "Five of a Kind"};
+    if (groups[0].c >= 2) {
+      if (groups[0].c + w >= 4) return {key: "quads", name: wn + " + " + (groups[0].c === 3 ? "three " : "pair of ") + pn(groups[0].r) + " = Four of a Kind" + extra(groups[0].c)};
+      if (w === 1 && groups[1] && groups[1].c === 2) return {key: "full", name: wn + " + Two Pair = Full House"};
+      return {key: "trips", name: wn + " + pair of " + pn(groups[0].r) + " = Three of a Kind" + extra(2)};
+    }
+    if (joker && m === 1) {
+      if (ranks[0] >= g.pairMin) return {key: "jhigh", name: "Joker + " + RANKS[ranks[0]] + " = " + g.pairName};
+      return {key: "wother", name: "Joker + " + RANKS[ranks[0]]};
+    }
+    if (suited && allRoyal) return {key: "wroyal" + total, name: total + " to a Royal Flush " + withW};
+    if (suited && canStraight && m >= 2) return {key: "sf" + total, name: total + " to a Straight Flush " + withW};
+    if (suited && m >= 2) return {key: "flush" + total, name: total + " to a Flush " + withW};
+    if (canStraight && total === 4) return {key: "wstraight", name: "4 to a Straight " + withW};
+    if (1 + w >= 4) return {key: "quads", name: wn + " + " + RANKS[groups[0].r] + " = Four of a Kind"};
+    if (1 + w >= 3 && m === 1) return {key: "trips", name: wn + " + " + RANKS[groups[0].r] + " = Three of a Kind"};
+    return {key: "wother", name: wn + " + " + m + (m === 1 ? " card" : " cards")};
+  }
+
+  if (groups[0].c === 4) {
+    if (g.kicker && (groups[0].r === 12 || groups[0].r <= 2)) return {key: "quadkick", name: "Four " + pn(groups[0].r) + ", drawing for a kicker"};
+    return {key: "quads", name: "Four of a Kind"};
+  }
+  if (groups[0].c === 3 && groups[1] && groups[1].c === 2) return {key: "full", name: "Full House"};
+  if (groups[0].c === 3) return {key: "trips", name: "Three " + pn(groups[0].r) + extra(3)};
+  if (groups[0].c === 2 && groups[1] && groups[1].c === 2) return {key: "twopair", name: "Two Pair" + extra(4)};
+  if (groups[0].c === 2) {
+    if (groups[0].r >= g.pairMin) return {key: "highpair", name: "High Pair of " + pn(groups[0].r) + extra(2)};
+    return {key: "lowpair", name: (g.wild === "deuces" ? "Pair of " : "Low Pair of ") + pn(groups[0].r) + extra(2)};
+  }
+  var hi = ranks.filter(function (r) { return r >= g.pairMin; }).length;
+  if (m >= 2 && suited && allRoyal) {
+    if (m === 2) return {key: "royal2", name: "2 to a Royal Flush"};
+    return {key: "royal" + m, name: m + " to a Royal Flush"};
+  }
+  if (m >= 3 && suited && canStraight) return {key: "sf" + m, name: m + " to a Straight Flush"};
+  if (m >= 3 && suited) return {key: "flush" + m, name: m + " to a Flush"};
+  if (m === 4 && canStraight) {
+    var lo = Math.min.apply(null, ranks), top = Math.max.apply(null, ranks);
+    if (top - lo === 3 && top !== 12) return {key: "outside", name: "4 to an Outside Straight"};
+    return {key: "inside", name: "4 to an Inside Straight"};
+  }
+  if (m === 3 && canStraight) return {key: "straight3", name: "3 to a Straight"};
+  if (m === 2 && suited) return {key: "suited2", name: "2 suited cards"};
+  if (hi === m) {
+    if (m === 1) return {key: "highcard", name: "Single high card: " + RANKS[ranks[0]]};
+    return {key: "highcards", name: m + " unsuited high cards"};
+  }
+  return {key: "other", name: "Mixed hold"};
+}
+
+function whyText(key, g) {
+  var wildGame = !!g.wild, deuces = g.wild === "deuces";
+  var paysTwoPair = g.rows.indexOf("Two Pair") >= 0;
+  var W = {
+    royal: "You already have the best hand in the game. Keep all five cards.",
+    fourwild: "Four deuces is locked in. The fifth card can't change the payout.",
+    five: "Five of a kind is locked in. Keep all five cards.",
+    wroyal: "A wild royal flush is locked in. Keep all five cards.",
+    sflush: "A made straight flush pays more than any draw could return on average. Keep all five cards.",
+    quads: "Four of a kind is locked in" + (wildGame ? ", and drawing one card still has a shot at five of a kind." : ". The fifth card can't change the result."),
+    quadkick: "Four of a kind is already locked in. On this game the fifth card can upgrade it to the bigger kicker payout, so draw one card. You can't lose the quads.",
+    full: "A made full house pays more than anything you could draw to on average.",
+    flush: "A made flush already pays, and giving it up only makes sense when you're very close to a Royal.",
+    straight: "A made straight already pays, and giving it up only makes sense when you're very close to a Royal.",
+    trips: deuces
+      ? "Three of a kind already pays. Drawing two gives chances at four of a kind, a full house, or five of a kind, and every deuce you draw helps."
+      : "Three of a kind already pays. Drawing two adds chances at a full house or four of a kind" + (wildGame ? ", and even five of a kind." : g.kicker ? ", and the four-of-a-kind bonuses on this game are big." : "."),
+    twopair: paysTwoPair
+      ? "Two pair already pays. Drawing one card keeps the win and gives you outs to a full house."
+      : "Two pair doesn't pay on this game, but it has four cards that make a full house.",
+    highpair: "A pair of " + g.pairName + " already pays back your bet. Keeping it locks that in, and drawing adds chances at two pair, trips, a full house, or quads.",
+    lowpair: deuces
+      ? "A pair is one step from three of a kind, the lowest paying hand here, and any deuce you draw improves it."
+      : "A low pair doesn't pay yet, but it's one step from two pair or three of a kind" + (g.kicker ? ", and four of a kind pays big on this game." : ". That wins more often than most draws."),
+    royal4: "Only one card completes the Royal, but the payout is so big that this draw beats almost anything, even a made flush or straight.",
+    royal3: "Three to a Royal keeps a real shot at the jackpot while also drawing to flushes, straights, and high pairs.",
+    royal2: "Two suited high cards keep Royal, flush, straight, and high-pair chances alive all at once.",
+    wroyal5: "This is the strongest draw available here.",
+    wroyal4: "You're one card from a wild royal, with plenty of straight flush, flush, and straight chances too.",
+    wroyal3: "These cards keep a wild royal in reach, along with straight flush, flush, straight, and bigger-hand chances.",
+    wroyal2: "The wild card and this high card keep the most winning chances open.",
+    sf5: "This is the strongest draw available here.",
+    sf4: "Four to a straight flush can hit a straight flush, and also has plenty of flush and straight outs.",
+    sf3: "Three to a straight flush has many ways to become a flush or straight, plus a small straight-flush chance.",
+    flush5: "This is the strongest draw available here.",
+    flush4: "Four to a flush completes about 1 time in 5.",
+    flush3: "Three to a flush keeps a long-shot flush draw plus whatever pairs these cards can make.",
+    outside: "An open-ended straight draw has eight cards that complete it.",
+    inside: "Only four cards fill an inside straight, but any high cards in it can still pair up for a win.",
+    wstraight: "The wild card already fills a gap, so this straight draw has more ways to complete than a normal one.",
+    straight3: "These three cards give the most ways to make a paying hand here.",
+    suited2: "Two suited cards give the best mix of flush and pairing chances in this hand.",
+    highcards: "High cards (" + g.highList + ") win when they pair up. This is the combination that pairs up most often without blocking other chances.",
+    highcard: "Pairing this high card pays, and drawing four fresh cards adds other ways to win.",
+    walone: deuces
+      ? "Deuces are wild and are the most valuable cards in the game. Nothing else here adds to them, so keep just the deuces and draw."
+      : "The joker makes every draw better: it pairs with any King or Ace you draw and helps fill straights, flushes, and bigger hands. Nothing else here adds to it.",
+    jhigh: "The joker pairs with this card, so you already have a winner. Drawing three adds chances at trips, quads, and more.",
+    wother: "Holding the wild card with these cards returns the most on average for your payouts.",
+    none: "Nothing here is worth keeping. Five fresh cards give the best average return.",
+    other: "This combination has the highest average return for your payouts."
+  };
+  return W[key] || W.other;
+}
+
+</script>
+
+<script>
+/* ---------- Host bridge (Scriptable fills these in) ---------- */
+var HOST = /*__HOST__*/false;
+var SAVED = /*__SAVED__*/null;
+
+function validArr(a, n) {
+  if (!a || a.length !== n) return false;
+  for (var i = 0; i < n; i++) if (typeof a[i] !== "number" || !(a[i] >= 0) || !isFinite(a[i])) return false;
+  return true;
+}
+var state = {game: "job", pays: {}, returns: {}, swipe: "higher", maxBet: true};
+GAMES.forEach(function (g) { state.pays[g.id] = g.defs.slice(); });
+function applySaved(s) {
+  if (!s) return;
+  if (validArr(s, 9)) { state.pays.job = s.slice(); return; }              /* first version */
+  if (typeof s !== "object") return;
+  if (s.mode) {                                                            /* joker-toggle version */
+    if (validArr(s.job, 9)) state.pays.job = s.job.slice();
+    if (validArr(s.joker, 11)) state.pays.joker = s.joker.slice();
+    state.game = s.mode === "joker" ? "joker" : "job";
+    return;
+  }
+  if (s.game && GAME_BY_ID[s.game]) state.game = s.game;
+  if (s.swipe === "higher" || s.swipe === "lower") state.swipe = s.swipe;
+  if (typeof s.maxBet === "boolean") state.maxBet = s.maxBet;
+  if (s.pays) GAMES.forEach(function (g) { if (validArr(s.pays[g.id], g.rows.length)) state.pays[g.id] = s.pays[g.id].slice(); });
+  if (s.returns && typeof s.returns === "object") {
+    for (var k in s.returns) if (typeof s.returns[k] === "number") state.returns[k] = s.returns[k];
+  }
+}
+if (SAVED) applySaved(SAVED);
+else { try { applySaved(JSON.parse(localStorage.getItem("pa_state"))); } catch (e) {} }
+
+function G() { return GAME_BY_ID[state.game]; }
+function P() { return state.pays[state.game]; }
+/* Pays actually in effect: below max bet the Royal pays 250 per coin instead of 800 */
+var SHORT_ROYAL = 250;
+function effPays(p) { var q = p.slice(); if (!state.maxBet) q[0] = SHORT_ROYAL; return q; }
+function EP() { return effPays(P()); }
+
+var saveTimer = null;
+function persist() {
+  var keys = Object.keys(state.returns);
+  if (keys.length > 60) keys.slice(0, keys.length - 60).forEach(function (k) { delete state.returns[k]; });
+  try { localStorage.setItem("pa_state", JSON.stringify(state)); } catch (e) {}
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () {
+    var json = JSON.stringify(state);
+    if (HOST) {
+      var f = document.createElement("iframe");
+      f.style.display = "none";
+      f.src = "https://poker-advisor.save/?d=" + encodeURIComponent(json);
+      document.body.appendChild(f);
+      setTimeout(function () { f.remove(); }, 1500);
+    }
+  }, 400);
+}
+function PA_getState() { return state; }
+
+/* ---------- Payback lookup ---------- */
+function payKey(g, p) { return g.id + ":" + p.join(","); }
+function knownReturn(g, base) {
+  var from = state.maxBet ? 0 : 1;          /* below max bet the Royal line doesn't matter */
+  for (var i = 0; i < g.presets.length; i++) {
+    if (g.presets[i].p.slice(from).join(",") === base.slice(from).join(","))
+      return {r: state.maxBet ? g.presets[i].r : g.presets[i].rs, name: g.presets[i].name};
+  }
+  var p = effPays(base);
+  var k = payKey(g, p);
+  if (typeof state.returns[k] === "number") return {r: state.returns[k], name: "Your pay table"};
+  return null;
+}
+function pctText(r) { return r.toFixed(2) + "%"; }
+function renderPayback() {
+  var g = G(), p = P(), box = document.getElementById("payback");
+  var k = knownReturn(g, p);
+  if (k) {
+    var ex = explainName(g, k.name);
+    box.innerHTML = '<span>' + k.name + (ex ? ' <span class="muted">(' + ex + ')</span>' : '') + '<br><span class="muted">Payback with perfect play' + (state.maxBet ? "" : ' \u00B7 <b class="bad" style="font-size:13px">not max bet</b>') + '</span></span><b class="' + (k.r >= 99 ? "good" : k.r < 96 ? "bad" : "") + '">' + pctText(k.r) + "</b>";
+  } else {
+    box.innerHTML = '<span class="muted">Custom pay table · payback not calculated yet</span><button class="small" id="calcBtn">Calculate</button>';
+    document.getElementById("calcBtn").addEventListener("click", calcPayback);
+  }
+  renderCompare();
+}
+function calcPayback() {
+  var g = G(), p = EP(), box = document.getElementById("payback");
+  box.innerHTML = '<span class="muted"><span class="spin"></span>Checking every possible hand… a few seconds</span>';
+  setTimeout(function () {
+    var r = machineReturn(g, p) * 100;
+    state.returns[payKey(g, p)] = r;
+    persist();
+    renderPayback();
+  }, 60);
+}
+function renderCompare() {
+  var rows = GAMES.map(function (g) {
+    var k = knownReturn(g, state.pays[g.id]);
+    return {g: g, r: k ? k.r : null, name: k ? k.name : "custom"};
+  });
+  rows.sort(function (a, b) { return (b.r === null ? -1 : b.r) - (a.r === null ? -1 : a.r); });
+  var html = '<p class="muted" style="margin:0 0 8px">Set each game to the pay table this machine shows (in each game’s Pay table section), then pick the highest.</p><table class="cmp">';
+  rows.forEach(function (x) {
+    html += "<tr><td>" + x.g.title + ' <span class="muted">' + x.name + '</span></td><td class="n">' +
+      (x.r === null ? '<span class="muted">not calculated</span>' : "<b>" + pctText(x.r) + "</b>") + "</td></tr>";
+  });
+  document.getElementById("cmp").innerHTML = html + "</table>";
+}
+
+/* ---------- Hand state ---------- */
+var hand = [];
+var slotSuit = [0, 1, 2, 3, 0];
+function dealRandom() {
+  var deck = [], size = G().deck;
+  for (var i = 0; i < size; i++) deck.push(i);
+  for (var j = size - 1; j > 0; j--) { var r = Math.floor(Math.random() * (j + 1)); var t = deck[j]; deck[j] = deck[r]; deck[r] = t; }
+  hand = deck.slice(0, 5);
+  for (i = 0; i < 5; i++) if (hand[i] !== JOKER) slotSuit[i] = hand[i] & 3;
+}
+function taken(card, idx) {
+  for (var i = 0; i < 5; i++) if (i !== idx && hand[i] === card) return true;
+  return false;
+}
+/* While a card is being changed it steps through every value and suit, even ones
+   already in the hand. When the finger lifts, the card you just set always stays.
+   If another card matches it, that other card switches to a free suit and keeps its
+   value. Only if every suit of that value is taken does it move to the next free value. */
+function rankSize() { return G().wild === "joker" ? 14 : 13; }   /* position 13 = Joker */
+function changeRank(idx, dir) {
+  var c = hand[idx], size = rankSize();
+  var pos = c === JOKER ? 13 : c >> 2;
+  var s = c === JOKER ? slotSuit[idx] : c & 3;
+  pos = (pos + dir + size) % size;
+  hand[idx] = pos === 13 ? JOKER : pos * 4 + s;
+  if (hand[idx] !== JOKER) slotSuit[idx] = hand[idx] & 3;
+  handChanged(idx);
+}
+function changeSuit(idx) {
+  if (hand[idx] === JOKER) { bump(idx); return; }
+  var r = hand[idx] >> 2, s = ((hand[idx] & 3) + 1) % 4;
+  hand[idx] = r * 4 + s;
+  slotSuit[idx] = s;
+  handChanged(idx);
+}
+function resolveDuplicates(idx) {
+  var j = -1;
+  for (var i = 0; i < 5; i++) if (i !== idx && hand[i] === hand[idx]) j = i;
+  if (j < 0) return;
+  var change = j, keep = idx;          /* the card you just set always stays; the other one moves */
+  var before = hand[change], found = false, k, nc;
+  if (before !== JOKER) {
+    var r = before >> 2, s0 = before & 3;
+    for (k = 1; k < 4 && !found; k++) {                 /* same value, next free suit */
+      nc = r * 4 + (s0 + k) % 4;
+      if (!taken(nc, change)) { hand[change] = nc; found = true; }
+    }
+  }
+  if (!found) {                                         /* every suit taken (or a Joker): next free value */
+    var size = rankSize();
+    var pos0 = before === JOKER ? 13 : before >> 2;
+    var su0 = before === JOKER ? slotSuit[change] : before & 3;
+    for (k = 1; k < size * 4 && !found; k++) {
+      var pos = (pos0 + k) % size, su = (su0 + Math.floor(k / size)) % 4;
+      nc = pos === 13 ? JOKER : pos * 4 + su;
+      if (!taken(nc, change)) { hand[change] = nc; found = true; }
+    }
+  }
+  if (hand[change] !== JOKER) slotSuit[change] = hand[change] & 3;
+  drawHand();
+  var el = slots[change].querySelector(".card");
+  el.classList.remove("moved"); void el.offsetWidth; el.classList.add("moved");
+  setTimeout(function () { el.classList.remove("moved"); }, 1200);
+  showMessage("Card " + (keep + 1) + " is " + (before === JOKER ? "the " : "") + cardLabel(before) + ", so card " + (change + 1) +
+    " changed to " + cardLabel(hand[change]) + " to avoid a duplicate. Tap <b>Enter</b> for advice.");
+}
+
+/* ---------- Rendering ---------- */
+var handEl = document.getElementById("hand");
+var resultEl = document.getElementById("result");
+var slots = [];
+var lastResult = null;
+
+function isRed(c) { if (c === JOKER) return false; var s = c & 3; return s === 1 || s === 2; }
+function cardLabel(c) {
+  if (c === JOKER) return '<span class="jk">Joker</span>';
+  var t = RANKS[c >> 2] + SUITS[c & 3];
+  return isRed(c) ? '<span class="rd">' + t + "</span>" : t;
+}
+function cardList(cards) {
+  if (!cards.length) return "nothing";
+  var g = G();
+  var key = function (c) { return c === JOKER ? 99 : g.isWild(c) ? 50 : c >> 2; };
+  var sorted = cards.slice().sort(function (a, b) { return key(b) - key(a); });
+  return sorted.map(cardLabel).join(" ");
+}
+
+function buildHand() {
+  handEl.innerHTML = "";
+  slots = [];
+  for (var i = 0; i < 5; i++) {
+    var slot = document.createElement("div");
+    slot.className = "slot";
+    slot.innerHTML = '<div class="badge">HOLD</div><div class="card"><span class="arr up">▲</span><span class="r"></span><span class="s"></span><span class="wl">WILD</span><span class="arr dn">▼</span></div>';
+    handEl.appendChild(slot);
+    slots.push(slot);
+    attachGestures(slot.querySelector(".card"), i);
+  }
+  drawHand();
+}
+function drawHand() {
+  var g = G();
+  for (var i = 0; i < 5; i++) {
+    var c = hand[i], el = slots[i].querySelector(".card");
+    var j = c === JOKER;
+    el.querySelector(".r").textContent = j ? "JOKER" : RANKS[c >> 2];
+    el.querySelector(".s").textContent = j ? "★" : SUITS[c & 3];
+    el.classList.toggle("red", isRed(c));
+    el.classList.toggle("joker", j);
+    el.classList.toggle("wild", g.wild === "deuces" && g.isWild(c));
+  }
+}
+function bump(idx) {
+  var el = slots[idx].querySelector(".card");
+  el.classList.add("bump");
+  setTimeout(function () { el.classList.remove("bump"); }, 110);
+}
+function clearHolds() {
+  slots.forEach(function (s) { s.classList.remove("hold", "toss"); });
+}
+function showMessage(msg) {
+  lastResult = null;
+  clearHolds();
+  resultEl.innerHTML = '<p class="placeholder">' + msg + "</p>";
+}
+function handChanged(idx) {
+  drawHand();
+  bump(idx);
+  clearHolds();
+  if (lastResult) showMessage("Hand changed. Tap <b>Enter</b> for the new advice.");
+}
+
+function swipeSign() { return state.swipe === "lower" ? -1 : 1; }
+function attachGestures(el, idx) {
+  var startY = 0, startX = 0, applied = 0, active = false, moved = false;
+  var STEP = 30;
+  el.addEventListener("pointerdown", function (e) {
+    active = true; moved = false; applied = 0;
+    startY = e.clientY; startX = e.clientX;
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  el.addEventListener("pointermove", function (e) {
+    if (!active) return;
+    var dy = e.clientY - startY, dx = e.clientX - startX;
+    if (Math.abs(dy) > 8 || Math.abs(dx) > 8) moved = true;
+    var target = Math.trunc(-dy / STEP) * swipeSign();
+    while (applied < target) { changeRank(idx, 1); applied++; }
+    while (applied > target) { changeRank(idx, -1); applied--; }
+  });
+  el.addEventListener("pointerup", function (e) {
+    if (!active) return;
+    active = false;
+    var dy = e.clientY - startY, dx = e.clientX - startX;
+    if (applied === 0) {
+      if (!moved) changeSuit(idx);
+      else if (Math.abs(dy) >= 14 && Math.abs(dy) > Math.abs(dx)) changeRank(idx, (dy < 0 ? 1 : -1) * swipeSign());
+    }
+    resolveDuplicates(idx);
+  });
+  el.addEventListener("pointercancel", function () {
+    if (!active) return;
+    active = false;
+    resolveDuplicates(idx);
+  });
+}
+
+function pct(x) {
+  var v = x * 100;
+  if (v === 0) return "0%";
+  if (v < 0.01) return "<0.01%";
+  if (v < 1) return v.toFixed(2) + "%";
+  return v.toFixed(1) + "%";
+}
+function fmt(x) { return x.toFixed(3); }
+
+function renderResult(results) {
+  var g = G(), pays = EP();
+  var best = results[0];
+  var d = describeHold(best.held, g);
+  var tossed = hand.filter(function (c) { return best.held.indexOf(c) < 0; });
+
+  for (var i = 0; i < 5; i++) {
+    var keep = (best.mask & (1 << i)) !== 0;
+    slots[i].classList.toggle("hold", keep);
+    slots[i].classList.toggle("toss", !keep);
+  }
+
+  var verdict;
+  if (best.held.length === 5) verdict = "Hold all five cards";
+  else if (best.held.length === 0) verdict = "Discard all five";
+  else verdict = "Hold " + cardList(best.held);
+
+  var html = "<h2>Best play · " + g.title + "</h2>";
+  html += '<p class="verdict">' + verdict + "</p>";
+  html += '<p class="cat">' + d.name + "</p>";
+  if (tossed.length && best.held.length) html += '<p class="muted" style="margin:-4px 0 10px">Discard ' + cardList(tossed) + "</p>";
+  html += '<p class="why">' + whyText(d.key, g);
+
+  var second = results[1];
+  if (second) {
+    var d2 = describeHold(second.held, g);
+    var gap = best.ev - second.ev;
+    if (gap < 1e-9) {
+      html += " Holding " + cardList(second.held) + " returns exactly the same, so either is fine.";
+    } else {
+      html += " The next best option, " + (second.held.length ? "holding " + cardList(second.held) : "drawing five new cards") +
+        " (" + d2.name + "), returns " + fmt(gap) + " less per coin bet.";
+    }
+  }
+  html += "</p>";
+
+  var nr = g.rows.length, winCount = 0;
+  for (i = 0; i < nr; i++) if (pays[i] > 0) winCount += best.counts[i];
+  html += "<h2>After the draw</h2><table>";
+  for (i = 0; i < nr; i++) {
+    if (best.counts[i] > 0) html += "<tr><td>" + g.rows[i] + '</td><td class="n">' + pct(best.counts[i] / best.total) + "</td></tr>";
+  }
+  html += '<tr><td><b>Any paying hand</b></td><td class="n"><b>' + pct(winCount / best.total) + "</b></td></tr></table>";
+
+  html += '<div class="ev"><span class="muted">Average return per coin bet</span><b>' + fmt(best.ev) + "</b></div>";
+
+  html += '<h2 style="margin-top:16px">Other options</h2>';
+  for (i = 1; i < Math.min(5, results.length); i++) {
+    var r = results[i], dr = describeHold(r.held, g);
+    var diff = best.ev - r.ev;
+    html += '<div class="alt"><div class="top"><span>' + (r.held.length ? "Hold " + cardList(r.held) : "Discard all") +
+      '</span><span class="d">' + (diff < 1e-9 ? "same" : "−" + fmt(diff)) + '</span></div><div class="muted">' +
+      dr.name + " · returns " + fmt(r.ev) + "</div></div>";
+  }
+  resultEl.innerHTML = html;
+}
+
+function runAnalysis() {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  resultEl.innerHTML = '<p class="placeholder"><span class="spin"></span>Checking all 32 ways to hold…</p>';
+  setTimeout(function () {
+    var results = analyze(hand, EP(), G());
+    lastResult = results;
+    renderResult(results);
+  }, 40);
+}
+
+/* ---------- Game picker + pay table editor ---------- */
+function buildPays() {
+  var g = G(), pays = P();
+  var box = document.getElementById("payRows");
+  box.innerHTML = "";
+  g.rows.forEach(function (name, i) {
+    var row = document.createElement("div");
+    row.className = "pay";
+    if (i === 0) {
+      row.innerHTML = '<div class="rl"><label for="p0">' + name + '</label><label class="mb"><span class="sw"><input type="checkbox" id="maxBetSw"><i></i></span>Max bet</label></div>' +
+        '<input id="p0" type="number" inputmode="decimal" min="0" step="any">';
+    } else {
+      row.innerHTML = '<label for="p' + i + '">' + name + '</label><input id="p' + i + '" type="number" inputmode="decimal" min="0" step="any">';
+    }
+    var inp = row.querySelector("#p" + i);
+    inp.value = pays[i];
+    if (i === 0) {
+      var sw = row.querySelector("#maxBetSw");
+      var syncRoyal = function () {
+        sw.checked = state.maxBet;
+        inp.disabled = !state.maxBet;
+        inp.value = state.maxBet ? P()[0] : SHORT_ROYAL;
+      };
+      syncRoyal();
+      sw.addEventListener("change", function () {
+        state.maxBet = sw.checked;
+        syncRoyal(); persist(); paysChanged();
+      });
+    }
+    inp.addEventListener("input", function () {
+      var v = parseFloat(inp.value);
+      if (isFinite(v) && v >= 0) { P()[i] = v; persist(); paysChanged(); }
+    });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") runAnalysis(); });
+    box.appendChild(row);
+  });
+  renderPresets();
+  document.getElementById("keyNote").innerHTML = "<b>Reading pay table names:</b> in " + g.title + ", the numbers are " +
+    g.nameKey.join(" / ") + " (what each pays for 1 coin). Example: " + g.presets[0].name + " = " + explainName(g, g.presets[0].name) + ".";
+  document.getElementById("paySummary").textContent = g.title + " pay table (per 1 coin)";
+  document.getElementById("mbNote").textContent = state.maxBet
+    ? "Max bet is on: the Royal pays its full max-bet amount (usually 4000 for 5 coins = 800 per coin)."
+    : "Max bet is off: the Royal pays 250 per coin, like betting 1\u20134 coins. This costs about 1.2% of payback.";
+}
+function renderPresets() {
+  var g = G(), sel = document.getElementById("preset");
+  sel.innerHTML = '<option value="">Load a common pay table\u2026</option>' +
+    g.presets.map(function (p, i) {
+      return '<option value="' + i + '">' + p.name + " = " + explainName(g, p.name) + " \u2014 " + pctText(state.maxBet ? p.r : p.rs) + "</option>";
+    }).join("");
+}
+function paysChanged() {
+  renderPresets();
+  renderPayback();
+  var n = document.getElementById("mbNote");
+  if (n) n.textContent = state.maxBet
+    ? "Max bet is on: the Royal pays its full max-bet amount (usually 4000 for 5 coins = 800 per coin)."
+    : "Max bet is off: the Royal pays 250 per coin, like betting 1\u20134 coins. This costs about 1.2% of payback.";
+  if (lastResult) showMessage("Pay table changed. Tap <b>Enter</b> to update the advice.");
+}
+function renderHint() {
+  var g = G();
+  document.getElementById("hint").textContent =
+    "Tap a card to change its suit \u00B7 Swipe up for a " + (state.swipe === "lower" ? "lower" : "higher") + " value" +
+    (g.wild === "joker" ? " \u00B7 The Joker comes after the Ace" : g.wild === "deuces" ? " \u00B7 All 2s are wild" : "");
+  var btns = document.querySelectorAll("#swipeSeg button");
+  for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("on", btns[i].getAttribute("data-v") === state.swipe);
+}
+(function () {
+  var btns = document.querySelectorAll("#swipeSeg button");
+  for (var i = 0; i < btns.length; i++) btns[i].addEventListener("click", function () {
+    state.swipe = this.getAttribute("data-v");
+    persist();
+    renderHint();
+  });
+})();
+function applyGameUI() {
+  var g = G();
+  document.getElementById("game").value = g.id;
+  renderHint();
+  buildPays();
+  renderPayback();
+}
+(function () {
+  var sel = document.getElementById("game");
+  sel.innerHTML = GAMES.map(function (g) { return '<option value="' + g.id + '">' + g.title + "</option>"; }).join("");
+  sel.addEventListener("change", function () {
+    state.game = sel.value;
+    if (G().wild !== "joker") {
+      var j = hand.indexOf(JOKER);
+      if (j >= 0) {
+        for (var r = 12; r >= 0; r--) {
+          var nc = r * 4 + slotSuit[j];
+          if (!taken(nc, j)) { hand[j] = nc; break; }
+        }
+      }
+    }
+    drawHand();
+    applyGameUI();
+    persist();
+    showMessage(G().title + " selected. Tap <b>Enter</b> for advice.");
+  });
+})();
+document.getElementById("preset").addEventListener("change", function (e) {
+  var p = G().presets[+e.target.value];
+  if (e.target.value !== "" && p) {
+    state.pays[state.game] = p.p.slice();
+    buildPays(); persist(); paysChanged();
+  }
+  e.target.value = "";
+});
+
+document.getElementById("enterBtn").addEventListener("click", runAnalysis);
+document.getElementById("randomBtn").addEventListener("click", function () {
+  dealRandom(); drawHand();
+  showMessage("New hand dealt. Tap <b>Enter</b> for advice.");
+});
+
+dealRandom();
+buildHand();
+applyGameUI();
+</script>
+<script>
+if ("serviceWorker" in navigator && /^https?:/.test(location.protocol)) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+</script>
+</body>
+</html>
